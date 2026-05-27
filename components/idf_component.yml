@@ -1,0 +1,10 @@
+version: "1.0.0"
+description: "ESP-IDF driver library for the Inkplate family of e-paper boards (Inkplate2, 4, 5, 6, 6Color, 6Flick, 10, 13)"
+url: "https://github.com/SolderedElectronics/Inkplate-Esp-library"
+repository: "https://github.com/SolderedElectronics/Inkplate-Esp-library.git"
+license: "GPL-3.0-only"
+
+dependencies:
+  idf:
+    version: ">=6.0.0"
+  espressif/cjson: "*"
