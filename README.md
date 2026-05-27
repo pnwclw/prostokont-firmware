@@ -75,13 +75,17 @@ On boot, the firmware:
 1. initializes the display
 2. loads persistent settings from NVS
 3. starts the local HTTP server
-4. tries to connect to the saved Wi-Fi network
-5. falls back to setup mode if Wi-Fi is missing or unavailable
+4. starts the BLE provisioning service
+5. tries to connect to the saved Wi-Fi network
+6. falls back to setup mode if Wi-Fi is missing or unavailable
 
-Setup mode exposes two provisioning transports:
+BLE provisioning is available on every boot. Setup mode additionally exposes:
 
-- BLE provisioning service
 - SoftAP with an SSID in the form `Prostokont-<SHORT_ID>`
+
+BLE provisioning uses pairing and stores bond data in NVS. If a phone or tablet
+has an old pairing entry from a previous firmware build, remove that saved BLE
+device before pairing again.
 
 When the device is in SoftAP mode, the setup URL is:
 

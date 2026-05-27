@@ -285,7 +285,7 @@ ble_gatt_chr_def g_characteristics[] = {
         .access_cb = characteristicAccess,
         .arg = nullptr,
         .descriptors = nullptr,
-        .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_READ_ENC,
+        .flags = BLE_GATT_CHR_F_READ,
         .min_key_size = 0,
         .val_handle = &g_runtime.pairHandle,
         .cpfd = nullptr,
@@ -295,8 +295,7 @@ ble_gatt_chr_def g_characteristics[] = {
         .access_cb = characteristicAccess,
         .arg = nullptr,
         .descriptors = nullptr,
-        .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY |
-                 BLE_GATT_CHR_F_READ_ENC,
+        .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
         .min_key_size = 0,
         .val_handle = &g_runtime.statusHandle,
         .cpfd = nullptr,
@@ -306,7 +305,7 @@ ble_gatt_chr_def g_characteristics[] = {
         .access_cb = characteristicAccess,
         .arg = nullptr,
         .descriptors = nullptr,
-        .flags = BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_WRITE_ENC,
+        .flags = BLE_GATT_CHR_F_WRITE,
         .min_key_size = 0,
         .val_handle = &g_runtime.configHandle,
         .cpfd = nullptr,
@@ -363,6 +362,22 @@ int gapEvent(ble_gap_event *event, void *arg) {
     ESP_LOGI(TAG, "BLE advertising completed, restarting");
     advertise();
     return 0;
+  case BLE_GAP_EVENT_ENC_CHANGE:
+    ESP_LOGI(TAG, "BLE encryption change: status=%d conn_handle=%u",
+             event->enc_change.status, event->enc_change.conn_handle);
+    return 0;
+  case BLE_GAP_EVENT_PASSKEY_ACTION:
+    ESP_LOGI(TAG, "BLE passkey action: action=%u numcmp=%lu conn_handle=%u",
+             event->passkey.params.action,
+             static_cast<unsigned long>(event->passkey.params.numcmp),
+             event->passkey.conn_handle);
+    return 0;
+  case BLE_GAP_EVENT_IDENTITY_RESOLVED:
+    ESP_LOGI(TAG,
+             "BLE identity resolved: conn_handle=%u addr_type=%u",
+             event->identity_resolved.conn_handle,
+             event->identity_resolved.peer_id_addr.type);
+    return 0;
   case BLE_GAP_EVENT_SUBSCRIBE:
     if (event->subscribe.attr_handle == g_runtime.statusHandle) {
       g_runtime.notifying = event->subscribe.cur_notify != 0;
@@ -384,6 +399,16 @@ int gapEvent(ble_gap_event *event, void *arg) {
 }
 
 void advertise() {
+  if (g_runtime.connHandle != BLE_HS_CONN_HANDLE_NONE) {
+    ESP_LOGI(TAG, "Skipping BLE advertising restart: connection is active");
+    return;
+  }
+
+  if (ble_gap_adv_active()) {
+    ESP_LOGI(TAG, "Skipping BLE advertising restart: advertising already active");
+    return;
+  }
+
   ble_hs_adv_fields fields = {};
   ble_uuid128_t serviceUuid = kServiceUuid;
   fields.flags = BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP;
@@ -416,7 +441,9 @@ void advertise() {
            g_runtime.advertisingName.c_str());
   rc = ble_gap_adv_start(g_runtime.ownAddrType, nullptr, BLE_HS_FOREVER, &params,
                          gapEvent, nullptr);
-  if (rc != 0) {
+  if (rc == BLE_HS_EALREADY) {
+    ESP_LOGI(TAG, "BLE advertising already active");
+  } else if (rc != 0) {
     ESP_LOGE(TAG, "Failed to start BLE advertisement: %d", rc);
   } else {
     ESP_LOGI(TAG, "BLE advertising started");
@@ -546,11 +573,11 @@ esp_err_t BleProvisioningService::begin() {
   ble_hs_cfg.sync_cb = onSync;
   ble_hs_cfg.store_status_cb = ble_store_util_status_rr;
   ble_hs_cfg.sm_io_cap = BLE_HS_IO_NO_INPUT_OUTPUT;
-  ble_hs_cfg.sm_bonding = 1;
-  ble_hs_cfg.sm_sc = 1;
+  ble_hs_cfg.sm_bonding = 0;
+  ble_hs_cfg.sm_sc = 0;
   ble_hs_cfg.sm_mitm = 0;
-  ble_hs_cfg.sm_our_key_dist |= BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID;
-  ble_hs_cfg.sm_their_key_dist |= BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID;
+  ble_hs_cfg.sm_our_key_dist = 0;
+  ble_hs_cfg.sm_their_key_dist = 0;
 
   ble_svc_gap_init();
   ble_svc_gatt_init();

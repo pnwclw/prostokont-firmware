@@ -94,6 +94,11 @@ extern "C" void app_main(void) {
                                bleProvisioning,
                                displayService, mdns);
   ESP_ERROR_CHECK(httpServer.begin());
+  err = bleProvisioning.begin();
+  if (err != ESP_OK) {
+    ESP_LOGE(TAG, "BLE provisioning init failed: %s", esp_err_to_name(err));
+    return;
+  }
   static ConnectivityMonitorContext connectivityMonitorContext = {
       .deviceIdentity = &deviceIdentity,
       .storage = &storage,
@@ -112,7 +117,6 @@ extern "C" void app_main(void) {
     std::string apSsid =
         std::string(config::kSoftApSsidPrefix) + deviceIdentity.shortIdUpper();
     ESP_ERROR_CHECK(wifiManager.startSetupSoftAp(apSsid));
-    ESP_ERROR_CHECK(bleProvisioning.begin());
     //ESP_ERROR_CHECK(displayService.showSetupScreen(deviceIdentity, apSsid.c_str(),
     //                                               config::kSoftApUrl, nullptr));
     return;
@@ -132,7 +136,6 @@ extern "C" void app_main(void) {
     std::string apSsid =
         std::string(config::kSoftApSsidPrefix) + deviceIdentity.shortIdUpper();
     ESP_ERROR_CHECK(wifiManager.startSetupSoftAp(apSsid));
-    ESP_ERROR_CHECK(bleProvisioning.begin());
     //ESP_ERROR_CHECK(displayService.showSetupScreen(deviceIdentity, apSsid.c_str(),
     //                                               config::kSoftApUrl, nullptr));
     return;
