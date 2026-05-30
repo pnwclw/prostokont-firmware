@@ -31,6 +31,7 @@ public:
 
   bool waitForStaIp(TickType_t timeoutTicks) const;
   bool hasStaIp() const;
+  void waitForConnectivityChange(TickType_t timeoutTicks) const;
   std::string scanJson();
 
   const std::string &softApSsid() const { return m_softApSsid; }

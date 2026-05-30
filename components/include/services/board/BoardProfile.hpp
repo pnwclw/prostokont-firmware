@@ -5,9 +5,20 @@
 
 #pragma once
 
-#include "Display.h"
+#include "panels/PanelFactory.hpp"
 
+#include <cstdint>
 #include <cstddef>
+
+enum DisplayInputFormat : uint32_t {
+  kDisplayInputFormatBmp = 1u << 0,
+  kDisplayInputFormatJpeg = 1u << 1,
+  kDisplayInputFormatPng = 1u << 2,
+  kDisplayInputFormatPackedFrame = 1u << 3,
+};
+
+inline constexpr uint32_t kDecodedDisplayInputFormats =
+    kDisplayInputFormatBmp | kDisplayInputFormatJpeg | kDisplayInputFormatPng;
 
 struct BoardProfile {
   const char *key;
@@ -16,104 +27,57 @@ struct BoardProfile {
   int height;
   bool packedFrameSupported;
   const char *colorScheme;
+  uint32_t displayInputFormats;
+  uint8_t defaultRotation;
+  bool colorImage;
+  bool preferReducedDither;
+  uint16_t accentColor;
+  uint16_t errorColor;
+  prostokont::PanelDescriptor panel;
+  prostokont::BoardDescriptor board;
+  prostokont::FirmwareDescriptor firmware;
 };
 
 inline const BoardProfile &currentBoardProfile() {
-#if defined(CONFIG_WAVESHARE_BOARD_WAVESHARE13)
+  constexpr prostokont::PanelDescriptor panel =
+      prostokont::currentPanelDescriptor();
+  constexpr prostokont::BoardDescriptor board =
+      prostokont::currentBoardDescriptor();
+  constexpr prostokont::FirmwareDescriptor firmware =
+      prostokont::currentFirmwareDescriptor();
   static constexpr BoardProfile profile = {
-      .key = "waveshare-13.3-e6",
-      .name = "Waveshare 13.3 inch E6",
-      .width = E_INK_WIDTH,
-      .height = E_INK_HEIGHT,
-      .packedFrameSupported = true,
-      .colorScheme = "6-color",
+      .key = board.key,
+      .name = board.name,
+      .width = panel.widthPx,
+      .height = panel.heightPx,
+      .packedFrameSupported = panel.supportsPackedFrame,
+      .colorScheme = panel.colorScheme,
+      .displayInputFormats =
+          kDecodedDisplayInputFormats |
+          (panel.supportsPackedFrame
+               ? static_cast<uint32_t>(kDisplayInputFormatPackedFrame)
+               : 0u),
+      .defaultRotation = panel.defaultRotation,
+      .colorImage = panel.colorImage,
+      .preferReducedDither = panel.preferReducedDither,
+      .accentColor = panel.accentColor,
+      .errorColor = panel.errorColor,
+      .panel = panel,
+      .board = board,
+      .firmware = firmware,
   };
-#elif defined(CONFIG_INKPLATE_BOARD_INKPLATE13)
-  static constexpr BoardProfile profile = {
-      .key = "inkplate-13",
-      .name = "Inkplate 13",
-      .width = E_INK_WIDTH,
-      .height = E_INK_HEIGHT,
-      .packedFrameSupported = true,
-      .colorScheme = "7-color",
-  };
-#elif defined(CONFIG_INKPLATE_BOARD_INKPLATE6COLOR)
-  static constexpr BoardProfile profile = {
-      .key = "inkplate-6-color",
-      .name = "Inkplate 6 Color",
-      .width = E_INK_WIDTH,
-      .height = E_INK_HEIGHT,
-      .packedFrameSupported = true,
-      .colorScheme = "7-color",
-  };
-#elif defined(CONFIG_INKPLATE_BOARD_INKPLATE2)
-  static constexpr BoardProfile profile = {
-      .key = "inkplate-2",
-      .name = "Inkplate 2",
-      .width = E_INK_WIDTH,
-      .height = E_INK_HEIGHT,
-      .packedFrameSupported = true,
-      .colorScheme = "3-color",
-  };
-#elif defined(CONFIG_INKPLATE_BOARD_INKPLATE10)
-  static constexpr BoardProfile profile = {
-      .key = "inkplate-10",
-      .name = "Inkplate 10",
-      .width = E_INK_WIDTH,
-      .height = E_INK_HEIGHT,
-      .packedFrameSupported = false,
-      .colorScheme = "monochrome",
-  };
-#elif defined(CONFIG_INKPLATE_BOARD_INKPLATE6)
-  static constexpr BoardProfile profile = {
-      .key = "inkplate-6",
-      .name = "Inkplate 6",
-      .width = E_INK_WIDTH,
-      .height = E_INK_HEIGHT,
-      .packedFrameSupported = false,
-      .colorScheme = "monochrome",
-  };
-#elif defined(CONFIG_INKPLATE_BOARD_INKPLATE6FLICK)
-  static constexpr BoardProfile profile = {
-      .key = "inkplate-6-flick",
-      .name = "Inkplate 6 Flick",
-      .width = E_INK_WIDTH,
-      .height = E_INK_HEIGHT,
-      .packedFrameSupported = false,
-      .colorScheme = "monochrome",
-  };
-#elif defined(CONFIG_INKPLATE_BOARD_INKPLATE5)
-  static constexpr BoardProfile profile = {
-      .key = "inkplate-5",
-      .name = "Inkplate 5",
-      .width = E_INK_WIDTH,
-      .height = E_INK_HEIGHT,
-      .packedFrameSupported = false,
-      .colorScheme = "monochrome",
-  };
-#elif defined(CONFIG_INKPLATE_BOARD_INKPLATE4)
-  static constexpr BoardProfile profile = {
-      .key = "inkplate-4",
-      .name = "Inkplate 4",
-      .width = E_INK_WIDTH,
-      .height = E_INK_HEIGHT,
-      .packedFrameSupported = false,
-      .colorScheme = "monochrome",
-  };
-#else
-  static constexpr BoardProfile profile = {
-      .key = "unknown",
-      .name = "Unknown board",
-      .width = E_INK_WIDTH,
-      .height = E_INK_HEIGHT,
-      .packedFrameSupported = false,
-      .colorScheme = "unknown",
-  };
-#endif
   return profile;
 }
 
+inline constexpr bool supportsDisplayInputFormat(const BoardProfile &profile,
+                                                 DisplayInputFormat format) {
+  return (profile.displayInputFormats & format) != 0;
+}
+
 inline size_t currentPackedFrameBytes() {
+  if (!currentBoardProfile().packedFrameSupported)
+    return 0;
+
   return static_cast<size_t>(currentBoardProfile().width) *
          static_cast<size_t>(currentBoardProfile().height) / 2;
 }

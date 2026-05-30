@@ -982,31 +982,24 @@ CONFIG_PARTITION_TABLE_MD5=y
 #
 # Display Board
 #
-# default:
 # CONFIG_INKPLATE_BOARD_INKPLATE2 is not set
-# default:
 # CONFIG_INKPLATE_BOARD_INKPLATE4 is not set
-# default:
 # CONFIG_INKPLATE_BOARD_INKPLATE5 is not set
-# default:
 # CONFIG_INKPLATE_BOARD_INKPLATE6 is not set
-# default:
 # CONFIG_INKPLATE_BOARD_INKPLATE6COLOR is not set
-# default:
 # CONFIG_INKPLATE_BOARD_INKPLATE6FLICK is not set
-# default:
 # CONFIG_INKPLATE_BOARD_INKPLATE10 is not set
-# default:
 # CONFIG_INKPLATE_BOARD_INKPLATE13 is not set
-# default:
 CONFIG_WAVESHARE_BOARD_WAVESHARE13=y
 # end of Display Board
 
 #
 # Wi-Fi Configuration
 #
-CONFIG_WIFI_SSID="Fort"
-CONFIG_WIFI_PASSWORD="zafgav-qomnuR-jacja1"
+# default:
+CONFIG_WIFI_SSID=""
+# default:
+CONFIG_WIFI_PASSWORD=""
 # end of Wi-Fi Configuration
 
 #
@@ -2449,10 +2442,10 @@ CONFIG_SPIRAM_CS_IO=26
 # CONFIG_SPIRAM_FETCH_INSTRUCTIONS is not set
 # default:
 # CONFIG_SPIRAM_RODATA is not set
-# CONFIG_SPIRAM_SPEED_80M is not set
-CONFIG_SPIRAM_SPEED_40M=y
+CONFIG_SPIRAM_SPEED_80M=y
+# CONFIG_SPIRAM_SPEED_40M is not set
 # default:
-CONFIG_SPIRAM_SPEED=40
+CONFIG_SPIRAM_SPEED=80
 # default:
 # CONFIG_SPIRAM_ECC_ENABLE is not set
 # default:

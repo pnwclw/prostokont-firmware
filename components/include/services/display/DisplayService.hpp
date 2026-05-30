@@ -20,7 +20,6 @@ public:
   esp_err_t clear();
   esp_err_t showPackedFrame(const uint8_t *frame, size_t len);
   esp_err_t showImage(const uint8_t *image, size_t len, bool dither = true);
-  esp_err_t showStartupColorBars();
 
   esp_err_t showSetupScreen(const DeviceIdentity &deviceIdentity,
                             const char *apSsid, const char *url,

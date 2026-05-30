@@ -21,11 +21,6 @@ extern "C" void app_main(void) {
   static DisplayService displayService(display);
   ESP_ERROR_CHECK(displayService.begin());
 
-  /*if (config::kShowStartupColorBars) {
-    ESP_ERROR_CHECK(displayService.showStartupColorBars());
-    vTaskDelay(pdMS_TO_TICKS(config::kStartupColorBarsDurationMs));
-  }*/
-
   static Storage storage;
   esp_err_t err = storage.begin();
   if (err != ESP_OK) {

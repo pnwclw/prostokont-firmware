@@ -24,59 +24,22 @@
 #pragma once
 
 #include "graphics/Graphics.h"
+#include "panels/PanelFactory.hpp"
 #include "services/network/HttpClient.hpp"
-#include "sdkconfig.h"
 
 #include <cstddef>
 
-#if defined(CONFIG_INKPLATE_BOARD_INKPLATE2) ||                                \
-    defined(CONFIG_INKPLATE_BOARD_INKPLATE6COLOR) ||                           \
-    defined(CONFIG_INKPLATE_BOARD_INKPLATE13) ||                               \
-    defined(CONFIG_WAVESHARE_BOARD_WAVESHARE13)
-#define COLOR_IMAGE
-#endif
-
-#ifdef COLOR_IMAGE
+#if PROSTOKONT_BOARD_COLOR_IMAGE
 #include "ImageColor.h"
 #else
 #include "Image.h"
-#endif
-
-#if defined(CONFIG_INKPLATE_BOARD_INKPLATE6) ||                                \
-    defined(CONFIG_INKPLATE_BOARD_INKPLATE6FLICK)
-#include "panels/inkplate/Inkplate6.h"
-#define DISPLAY_PANEL_CLASS Inkplate6
-#elif CONFIG_INKPLATE_BOARD_INKPLATE6COLOR
-#include "panels/inkplate/Inkplate6Color.h"
-#define DISPLAY_PANEL_CLASS Inkplate6Color
-#elif CONFIG_INKPLATE_BOARD_INKPLATE10
-#include "panels/inkplate/Inkplate10.h"
-#define DISPLAY_PANEL_CLASS Inkplate10
-#elif defined(CONFIG_INKPLATE_BOARD_INKPLATE13)
-#include "panels/inkplate/Inkplate13.h"
-#define DISPLAY_PANEL_CLASS Inkplate13
-#elif defined(CONFIG_WAVESHARE_BOARD_WAVESHARE13)
-#include "panels/waveshare/Waveshare13.h"
-#define DISPLAY_PANEL_CLASS Waveshare13
-#elif CONFIG_INKPLATE_BOARD_INKPLATE5
-#include "panels/inkplate/Inkplate5.h"
-#define DISPLAY_PANEL_CLASS Inkplate5
-#elif CONFIG_INKPLATE_BOARD_INKPLATE4
-#include "panels/inkplate/Inkplate4.h"
-#define DISPLAY_PANEL_CLASS Inkplate4
-#elif CONFIG_INKPLATE_BOARD_INKPLATE2
-#include "panels/inkplate/Inkplate2.h"
-#define DISPLAY_PANEL_CLASS Inkplate2
-#else
-#error                                                                         \
-    "No Display board selected. Choose a board in menuconfig -> Display Board."
 #endif
 
 /**
  * @brief Class for display overrides.
  *
  */
-class Display : public Graphics, public DISPLAY_PANEL_CLASS {
+class Display : public Graphics, public prostokont::PanelFactory::PanelType {
 public:
   /**
    * @brief Construct a new Display object.
@@ -84,7 +47,7 @@ public:
    */
   Display();
 
-#ifndef COLOR_IMAGE
+#if !PROSTOKONT_BOARD_COLOR_IMAGE
   /**
    * @brief Copies the framebuffer to partial for deepsleep restore.
    *
@@ -119,7 +82,7 @@ public:
    */
   esp_err_t showPackedFrame(const uint8_t *frame, size_t len);
 
-#ifdef COLOR_IMAGE
+#if PROSTOKONT_BOARD_COLOR_IMAGE
   ImageColor image;
 #else
   Image image;

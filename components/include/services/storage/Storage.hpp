@@ -23,10 +23,6 @@ public:
   bool isWifiProvisioned() const;
   esp_err_t setWifiProvisioned(bool provisioned);
 
-  std::string pairingToken() const;
-  esp_err_t setPairingToken(const std::string &token);
-  bool hasPairingToken() const;
-
   std::string deviceId() const;
   esp_err_t setDeviceId(const std::string &deviceId);
 
