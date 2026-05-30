@@ -1,0 +1,44 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  matrix:
+    name: discover targets
+    runs-on: ubuntu-latest
+    outputs:
+      boards: ${{ steps.read.outputs.boards }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: read
+        run: |
+          boards=$(jq -c '.boards' boards/manifest.json)
+          echo "boards=$boards" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: build ${{ matrix.board.key }}
+    needs: matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        board: ${{ fromJSON(needs.matrix.outputs.boards) }}
+    container:
+      image: espressif/idf:release-v6.0
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build ${{ matrix.board.key }}
+        shell: bash
+        run: |
+          . $IDF_PATH/export.sh
+          scripts/build-board.sh ${{ matrix.board.key }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prostokont-${{ matrix.board.key }}
+          path: dist/prostokont-${{ matrix.board.key }}-*.bin
+          if-no-files-found: error
+          retention-days: 14

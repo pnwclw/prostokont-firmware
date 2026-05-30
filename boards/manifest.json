@@ -1,0 +1,13 @@
+{
+  "boards": [
+    {"key": "waveshare-13-e6",   "target": "esp32s3", "kconfig": "CONFIG_WAVESHARE_BOARD_WAVESHARE13"},
+    {"key": "inkplate-2",        "target": "esp32",   "kconfig": "CONFIG_INKPLATE_BOARD_INKPLATE2"},
+    {"key": "inkplate-4",        "target": "esp32",   "kconfig": "CONFIG_INKPLATE_BOARD_INKPLATE4"},
+    {"key": "inkplate-5",        "target": "esp32",   "kconfig": "CONFIG_INKPLATE_BOARD_INKPLATE5"},
+    {"key": "inkplate-6",        "target": "esp32",   "kconfig": "CONFIG_INKPLATE_BOARD_INKPLATE6"},
+    {"key": "inkplate-6-color",  "target": "esp32",   "kconfig": "CONFIG_INKPLATE_BOARD_INKPLATE6COLOR"},
+    {"key": "inkplate-6-flick",  "target": "esp32s3", "kconfig": "CONFIG_INKPLATE_BOARD_INKPLATE6FLICK"},
+    {"key": "inkplate-10",       "target": "esp32",   "kconfig": "CONFIG_INKPLATE_BOARD_INKPLATE10"},
+    {"key": "inkplate-13",       "target": "esp32s3", "kconfig": "CONFIG_INKPLATE_BOARD_INKPLATE13"}
+  ]
+}

@@ -1,0 +1,5 @@
+# Inkplate 2 (Soldered) on ESP32.
+# Selected via `idf.py set-target esp32`.
+# TODO: confirm flash size / partition layout once a unit is on hand.
+
+CONFIG_INKPLATE_BOARD_INKPLATE2=y

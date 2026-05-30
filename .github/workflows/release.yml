@@ -1,0 +1,54 @@
+name: release
+
+# Per-target releases. Push a tag of the form `<board-key>-v<semver>`
+# (e.g. `waveshare-13-e6-v0.2.1`) to build that one board and publish
+# a GitHub Release with the binary attached. Other boards stay on their
+# own tags, unaffected.
+
+on:
+  push:
+    tags:
+      - "*-v[0-9]+.[0-9]+.[0-9]+*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    container:
+      image: espressif/idf:release-v6.0
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse tag
+        id: tag
+        shell: bash
+        run: |
+          # tag is "<board-key>-v<version>", board-key may itself contain dashes.
+          # Split on the right-most "-v".
+          ref="${GITHUB_REF_NAME}"
+          version="${ref##*-v}"
+          board="${ref%-v$version}"
+          if [[ -z "$board" || -z "$version" ]]; then
+            echo "Could not parse tag '$ref' as <board-key>-v<version>" >&2
+            exit 1
+          fi
+          if ! jq -e --arg key "$board" '.boards[] | select(.key==$key)' boards/manifest.json >/dev/null; then
+            echo "Tag references unknown board '$board' (not in boards/manifest.json)" >&2
+            exit 1
+          fi
+          echo "board=$board" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build ${{ steps.tag.outputs.board }}
+        shell: bash
+        run: |
+          . $IDF_PATH/export.sh
+          scripts/build-board.sh ${{ steps.tag.outputs.board }}
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ steps.tag.outputs.board }} v${{ steps.tag.outputs.version }}
+          files: dist/prostokont-${{ steps.tag.outputs.board }}-*.bin
+          generate_release_notes: true

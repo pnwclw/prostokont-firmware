@@ -1,0 +1,6 @@
+# Inkplate 10 (Soldered) on ESP32-WROVER (with PSRAM).
+# Selected via `idf.py set-target esp32`.
+# TODO: confirm SPIRAM mode / flash size once a unit is on hand.
+
+CONFIG_INKPLATE_BOARD_INKPLATE10=y
+CONFIG_SPIRAM=y
