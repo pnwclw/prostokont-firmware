@@ -24,12 +24,15 @@ public:
 
   esp_err_t showSetupScreen(const DeviceIdentity &deviceIdentity,
                             const char *apSsid, const char *url,
-                            const char *pairingCode);
+                            const char *pairingCode,
+                            const char *bleName = nullptr);
   esp_err_t showConnecting(const char *target);
   esp_err_t showReady(const char *endpoint);
   esp_err_t showError(const char *message);
 
 private:
+  void drawQrCode(const char *payload, int16_t left, int16_t top,
+                  int16_t size, uint16_t darkColor, uint16_t lightColor);
   esp_err_t showStatusScreen(const char *title, uint16_t accentColor,
                              const char *line1 = nullptr,
                              const char *line2 = nullptr,

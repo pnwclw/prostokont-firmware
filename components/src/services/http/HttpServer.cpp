@@ -13,6 +13,7 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "services/ble/BleProvisioningService.hpp"
+#include "services/board/BoardProfile.hpp"
 #include "services/device/DeviceIdentity.hpp"
 #include "services/display/DisplayService.hpp"
 #include "services/network/MdnsService.hpp"
@@ -21,6 +22,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 namespace {
 
@@ -119,9 +121,11 @@ esp_err_t HttpServer::discoveryHandler(httpd_req_t *req) {
   addString(json, "device_id", server->m_deviceIdentity.deviceId().c_str());
   addString(json, "name", server->m_deviceIdentity.name().c_str());
   addString(json, "model", config::kModel);
+  addString(json, "board", currentBoardProfile().key);
 
   cJSON *capabilities = cJSON_AddArrayToObject(json, "capabilities");
   cJSON_AddItemToArray(capabilities, cJSON_CreateString("wifi-provisioning"));
+  cJSON_AddItemToArray(capabilities, cJSON_CreateString("ble-display-v1"));
   cJSON_AddItemToArray(capabilities, cJSON_CreateString("image-upload"));
   cJSON_AddItemToArray(capabilities, cJSON_CreateString("image-clear"));
 
@@ -144,11 +148,17 @@ esp_err_t HttpServer::statusHandler(httpd_req_t *req) {
   addString(json, "name", server->m_deviceIdentity.name().c_str());
   addString(json, "hostname", server->m_deviceIdentity.hostname().c_str());
   addString(json, "model", config::kModel);
+  addString(json, "board", currentBoardProfile().key);
   addString(json, "firmware_version", config::kFirmwareVersion);
   cJSON_AddBoolToObject(json, "wifi_provisioned",
                         server->m_storage.isWifiProvisioned());
   cJSON_AddBoolToObject(json, "sta_connected",
                         server->m_wifiManager.hasStaIp());
+  cJSON_AddNumberToObject(json, "display_width", currentBoardProfile().width);
+  cJSON_AddNumberToObject(json, "display_height", currentBoardProfile().height);
+  cJSON_AddBoolToObject(json, "packed_frame_supported",
+                        currentBoardProfile().packedFrameSupported);
+  addString(json, "color_scheme", currentBoardProfile().colorScheme);
 
   esp_err_t err = server->sendJson(req, json);
   cJSON_Delete(json);
@@ -205,8 +215,9 @@ esp_err_t HttpServer::wifiConfigureHandler(httpd_req_t *req) {
     ESP_LOGW(TAG, "mDNS init failed after WiFi configure: %s",
              esp_err_to_name(err));
 
+  std::string readyUrl = "http://" + server->m_deviceIdentity.hostname() + ".local";
   ESP_ERROR_CHECK_WITHOUT_ABORT(
-      server->m_displayService.showReady(server->m_deviceIdentity.hostname().c_str()));
+      server->m_displayService.showReady(readyUrl.c_str()));
 
   cJSON *response = cJSON_CreateObject();
   cJSON_AddStringToObject(response, "state", "connected");
@@ -249,7 +260,8 @@ esp_err_t HttpServer::wifiResetHandler(httpd_req_t *req) {
                             "500 Internal Server Error");
 
   ESP_ERROR_CHECK_WITHOUT_ABORT(server->m_displayService.showSetupScreen(
-      server->m_deviceIdentity, apSsid.c_str(), config::kSoftApUrl, nullptr));
+      server->m_deviceIdentity, apSsid.c_str(), config::kSoftApUrl, nullptr,
+      server->m_deviceIdentity.name().c_str()));
 
   cJSON *response = cJSON_CreateObject();
   cJSON_AddBoolToObject(response, "reset", true);

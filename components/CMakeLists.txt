@@ -54,6 +54,7 @@ set(OTA_INCLUDES
 )
 
 set(SERVICE_SRCS
+    "src/services/app/ConnectivityCoordinator.cpp"
     "src/services/ble/BleProvisioningService.cpp"
     "src/services/display/DisplayService.cpp"
     "src/services/device/DeviceIdentity.cpp"
@@ -76,6 +77,7 @@ set(DECODER_SRCS
     "src/graphics/decoders/PNG.cpp"
     "src/graphics/decoders/pngle/pngle.c"
     "src/graphics/decoders/pngle/miniz.c"
+    "src/graphics/qrcodegen/qrcodegen.c"
 )
 
 set(GRAPHICS_SRCS
@@ -87,6 +89,7 @@ set(GRAPHICS_SRCS
 set(GRAPHICS_INCLUDES
     "include/graphics"
     "include/graphics/Adafruit_GFX"
+    "include/graphics/qrcodegen"
 )
 if(CONFIG_INKPLATE_BOARD_INKPLATE2)
 idf_component_register(SRCS "src/features/SPI.cpp"

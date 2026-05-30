@@ -14,6 +14,7 @@ class DeviceIdentity;
 class BleProvisioningService;
 class DisplayService;
 class MdnsService;
+class BoardProfile;
 class Storage;
 class WifiManager;
 

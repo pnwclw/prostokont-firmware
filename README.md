@@ -6,8 +6,10 @@ This repository contains the full device firmware, including:
 
 - display drivers for Inkplate and Waveshare panels
 - Wi-Fi provisioning over BLE and fallback SoftAP
+- a BLE display transport for image upload and display control
 - a local HTTP API for discovery, status, Wi-Fi setup, and image upload
 - mDNS advertising for `.local` access on the LAN
+- onboarding screens with QR codes for setup and local access
 - persistent device settings stored in NVS
 
 The current checked-in configuration targets `esp32s3` with `CONFIG_WAVESHARE_BOARD_WAVESHARE13=y`.
@@ -82,6 +84,12 @@ On boot, the firmware:
 BLE provisioning is available on every boot. Setup mode additionally exposes:
 
 - SoftAP with an SSID in the form `Prostokont-<SHORT_ID>`
+- an onboarding screen with a QR code for `http://192.168.4.1`
+
+BLE services:
+
+- Wi-Fi provisioning service: `ask-wifi-v1`
+- display service: `ble-display-v1`
 
 BLE provisioning uses pairing and stores bond data in NVS. If a phone or tablet
 has an old pairing entry from a previous firmware build, remove that saved BLE
@@ -118,6 +126,14 @@ Available endpoints:
 | `POST` | `/api/v1/image` | Render an uploaded image |
 | `DELETE` | `/api/v1/image` | Clear the display |
 
+The discovery and status payloads also report:
+
+- `board`
+- `display_width`
+- `display_height`
+- `packed_frame_supported`
+- `color_scheme`
+
 ### Wi-Fi Configure Request
 
 ```json
@@ -150,6 +166,7 @@ This file defines firmware identity, API paths, setup-mode defaults, storage key
 
 - Do not commit `build/` artifacts.
 - Board-specific source selection is controlled by `components/CMakeLists.txt` and `menuconfig`.
+- Compile-time board metadata is exposed through `components/include/services/board/BoardProfile.hpp`.
 - The main application entry point is `main/main.cpp`.
 - Device state is persisted under the NVS namespace `prostokont`.
 
