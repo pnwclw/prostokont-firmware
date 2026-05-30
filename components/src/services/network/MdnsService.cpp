@@ -7,6 +7,7 @@
 
 #include "config/AppConfig.hpp"
 #include "mdns.h"
+#include "panels/PanelFactory.hpp"
 #include "services/device/DeviceIdentity.hpp"
 
 static const char *HTTP_SERVICE_TYPE = "_http";
@@ -36,9 +37,10 @@ esp_err_t MdnsService::addHttpService(uint16_t port) {
   if (m_httpServiceAdded)
     return ESP_OK;
 
+  const auto firmware = prostokont::currentFirmwareDescriptor();
   mdns_txt_item_t txt[] = {
-      {"model", config::kModel},
-      {"fw", config::kFirmwareVersion},
+      {"model", firmware.model},
+      {"fw", firmware.version},
   };
 
   esp_err_t err = mdns_service_add(nullptr, HTTP_SERVICE_TYPE, HTTP_SERVICE_PROTO,

@@ -8,6 +8,7 @@
 #include "config/AppConfig.hpp"
 #include "graphics/ImageColor.h"
 #include "graphics/qrcodegen/qrcodegen.h"
+#include "services/board/BoardProfile.hpp"
 #include "services/device/DeviceIdentity.hpp"
 
 namespace {
@@ -18,18 +19,10 @@ constexpr int16_t kQrSize = 260;
 constexpr int16_t kQrLeft = E_INK_WIDTH - kQrSize - 80;
 constexpr int16_t kQrTop = 120;
 
-#if defined(CONFIG_WAVESHARE_BOARD_WAVESHARE13)
-constexpr uint16_t kColorAccent = WAVESHARE13_BLUE;
-constexpr uint16_t kColorError = WAVESHARE13_RED;
-#else
-constexpr uint16_t kColorAccent = kColorBlack;
-constexpr uint16_t kColorError = kColorBlack;
-#endif
-
 } // namespace
 
 esp_err_t DisplayService::begin() {
-  m_display.setRotation(0);
+  m_display.setRotation(currentBoardProfile().defaultRotation);
   return ESP_OK;
 }
 
@@ -47,21 +40,25 @@ esp_err_t DisplayService::showImage(const uint8_t *image, size_t len,
   if (image == nullptr || len == 0)
     return ESP_ERR_INVALID_ARG;
 
+  const BoardProfile &board = currentBoardProfile();
   m_display.clearDisplay();
 
-#if defined(CONFIG_WAVESHARE_BOARD_WAVESHARE13)
-  if (dither)
-    m_display.image.setDitherKernel(ReducedDiffusion);
-  else
-    m_display.image.setDitherKernel(FloydSteinberg);
+#if PROSTOKONT_BOARD_COLOR_IMAGE
+  if (board.preferReducedDither) {
+    if (dither)
+      m_display.image.setDitherKernel(ReducedDiffusion);
+    else
+      m_display.image.setDitherKernel(FloydSteinberg);
+  }
 #endif
 
   bool drawn = m_display.image.draw(const_cast<uint8_t *>(image),
                                     static_cast<int32_t>(len), 0, 0, dither,
                                     false);
 
-#if defined(CONFIG_WAVESHARE_BOARD_WAVESHARE13)
-  m_display.image.setDitherKernel(FloydSteinberg);
+#if PROSTOKONT_BOARD_COLOR_IMAGE
+  if (board.preferReducedDither)
+    m_display.image.setDitherKernel(FloydSteinberg);
 #endif
 
   if (!drawn) {
@@ -71,41 +68,18 @@ esp_err_t DisplayService::showImage(const uint8_t *image, size_t len,
   return m_display.display();
 }
 
-esp_err_t DisplayService::showStartupColorBars() {
-#if defined(CONFIG_WAVESHARE_BOARD_WAVESHARE13)
-  constexpr uint16_t kStripeColors[] = {WAVESHARE13_BLACK, WAVESHARE13_WHITE,
-                                        WAVESHARE13_YELLOW, WAVESHARE13_RED,
-                                        WAVESHARE13_BLUE, WAVESHARE13_GREEN};
-#else
-  constexpr uint16_t kStripeColors[] = {kColorBlack, kColorWhite, kColorAccent,
-                                        kColorError};
-#endif
-
-  constexpr size_t kStripeCount = sizeof(kStripeColors) / sizeof(kStripeColors[0]);
-  const int16_t stripeWidth = E_INK_WIDTH / static_cast<int16_t>(kStripeCount);
-
-  m_display.clearDisplay();
-  for (size_t i = 0; i < kStripeCount; ++i) {
-    const int16_t x = static_cast<int16_t>(i) * stripeWidth;
-    const int16_t width =
-        (i + 1 == kStripeCount) ? (E_INK_WIDTH - x) : stripeWidth;
-    m_display.fillRect(x, 0, width, E_INK_HEIGHT, kStripeColors[i]);
-  }
-
-  return m_display.display();
-}
-
 esp_err_t DisplayService::showSetupScreen(const DeviceIdentity &deviceIdentity,
                                           const char *apSsid, const char *url,
                                           const char *pairingCode,
                                           const char *bleName) {
+  const BoardProfile &board = currentBoardProfile();
   m_display.clearDisplay();
-  m_display.setTextColor(kColorAccent);
+  m_display.setTextColor(board.accentColor);
   m_display.setTextSize(4);
   m_display.setCursor(40, 70);
   m_display.println("Setup");
 
-  m_display.drawLine(40, 90, kQrLeft - 30, 90, kColorAccent);
+  m_display.drawLine(40, 90, kQrLeft - 30, 90, board.accentColor);
   m_display.setTextColor(kColorBlack);
   m_display.setTextSize(2);
 
@@ -148,17 +122,18 @@ esp_err_t DisplayService::showSetupScreen(const DeviceIdentity &deviceIdentity,
 }
 
 esp_err_t DisplayService::showConnecting(const char *target) {
-  return showStatusScreen("Connecting", kColorAccent, target);
+  return showStatusScreen("Connecting", currentBoardProfile().accentColor, target);
 }
 
 esp_err_t DisplayService::showReady(const char *endpoint) {
+  const BoardProfile &board = currentBoardProfile();
   m_display.clearDisplay();
-  m_display.setTextColor(kColorAccent);
+  m_display.setTextColor(board.accentColor);
   m_display.setTextSize(4);
   m_display.setCursor(40, 70);
   m_display.println("Ready");
 
-  m_display.drawLine(40, 90, kQrLeft - 30, 90, kColorAccent);
+  m_display.drawLine(40, 90, kQrLeft - 30, 90, board.accentColor);
   m_display.setTextColor(kColorBlack);
   m_display.setTextSize(2);
   m_display.setCursor(40, 150);
@@ -173,7 +148,7 @@ esp_err_t DisplayService::showReady(const char *endpoint) {
 }
 
 esp_err_t DisplayService::showError(const char *message) {
-  return showStatusScreen("Error", kColorError, message);
+  return showStatusScreen("Error", currentBoardProfile().errorColor, message);
 }
 
 esp_err_t DisplayService::showStatusScreen(const char *title,

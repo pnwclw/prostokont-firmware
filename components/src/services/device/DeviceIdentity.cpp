@@ -12,20 +12,6 @@
 
 #include <array>
 #include <cctype>
-#include <cstring>
-
-namespace {
-
-bool startsWith(const std::string &value, const char *prefix) {
-  return value.rfind(prefix, 0) == 0;
-}
-
-std::string replacePrefix(const std::string &value, const char *oldPrefix,
-                          const char *newPrefix) {
-  return std::string(newPrefix) + value.substr(std::strlen(oldPrefix));
-}
-
-} // namespace
 
 static const char *TAG = "ESP_DEVICE_IDENTITY";
 
@@ -57,11 +43,6 @@ esp_err_t DeviceIdentity::begin(Storage &storage) {
                  makeHex(mac.data() + 2, 4, true);
     ESP_RETURN_ON_ERROR(storage.setDeviceId(m_deviceId), TAG,
                         "Failed to persist device ID");
-  } else if (startsWith(m_deviceId, config::kLegacyDeviceIdPrefix)) {
-    m_deviceId = replacePrefix(m_deviceId, config::kLegacyDeviceIdPrefix,
-                               config::kDeviceIdPrefix);
-    ESP_RETURN_ON_ERROR(storage.setDeviceId(m_deviceId), TAG,
-                        "Failed to migrate device ID");
   }
 
   m_name = storage.deviceName();
@@ -69,11 +50,6 @@ esp_err_t DeviceIdentity::begin(Storage &storage) {
     m_name = std::string(config::kProductName) + " " + shortIdUpper();
     ESP_RETURN_ON_ERROR(storage.setDeviceName(m_name), TAG,
                         "Failed to persist device name");
-  } else if (startsWith(m_name, config::kLegacyProductName)) {
-    m_name = replacePrefix(m_name, config::kLegacyProductName,
-                           config::kProductName);
-    ESP_RETURN_ON_ERROR(storage.setDeviceName(m_name), TAG,
-                        "Failed to migrate device name");
   }
 
   ESP_LOGI(TAG, "Device initialized: id=%s hostname=%s", m_deviceId.c_str(),

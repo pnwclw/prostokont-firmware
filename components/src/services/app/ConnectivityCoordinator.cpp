@@ -116,7 +116,11 @@ esp_err_t ConnectivityCoordinator::ensureReady() {
 }
 
 void ConnectivityCoordinator::monitorLoop() {
+  constexpr TickType_t kHeartbeatTicks = pdMS_TO_TICKS(30000);
+
   while (true) {
+    m_wifiManager.waitForConnectivityChange(kHeartbeatTicks);
+
     const bool provisioned = m_storage.isWifiProvisioned();
     const bool connected = m_wifiManager.hasStaIp();
 
@@ -128,7 +132,5 @@ void ConnectivityCoordinator::monitorLoop() {
     } else if (m_setupModeActive) {
       ESP_ERROR_CHECK_WITHOUT_ABORT(ensureReady());
     }
-
-    vTaskDelay(pdMS_TO_TICKS(5000));
   }
 }

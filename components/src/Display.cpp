@@ -33,18 +33,11 @@ Display::Display()
     : Adafruit_GFX(E_INK_WIDTH, E_INK_HEIGHT),
       Graphics(E_INK_WIDTH, E_INK_HEIGHT), image(this) {
   clearDisplay();
-#if defined(CONFIG_INKPLATE_BOARD_INKPLATE2)
-  setRotation(3);
-#endif
-#if defined(CONFIG_INKPLATE_BOARD_INKPLATE6COLOR)
-  setRotation(2);
-#endif
-#if defined(CONFIG_INKPLATE_BOARD_INKPLATE4)
-  setRotation(1);
-#endif
+  if (PROSTOKONT_BOARD_DEFAULT_ROTATION != 0)
+    setRotation(PROSTOKONT_BOARD_DEFAULT_ROTATION);
 }
 
-#ifndef COLOR_IMAGE
+#if !PROSTOKONT_BOARD_COLOR_IMAGE
 void Display::preloadScreen() {
   memcpy(m_framebuffer, m_newFramebuffer, m_einkWidth * m_einkHeight / 8);
 }
@@ -57,7 +50,7 @@ void Display::drawPixel(int16_t x, int16_t y, uint16_t color) {
 uint8_t Display::getRotation() { return rotation; }
 
 esp_err_t Display::showPackedFrame(const uint8_t *frame, size_t len) {
-#ifdef COLOR_IMAGE
+#if PROSTOKONT_BOARD_PACKED_FRAME_SUPPORTED
   const size_t packedFrameBytes = E_INK_WIDTH * E_INK_HEIGHT / 2;
   if (frame == nullptr)
     return ESP_ERR_INVALID_ARG;

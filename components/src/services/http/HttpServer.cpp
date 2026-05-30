@@ -15,6 +15,7 @@
 #include "services/ble/BleProvisioningService.hpp"
 #include "services/board/BoardProfile.hpp"
 #include "services/device/DeviceIdentity.hpp"
+#include "services/device/StatusPayloadJson.hpp"
 #include "services/display/DisplayService.hpp"
 #include "services/network/MdnsService.hpp"
 #include "services/storage/Storage.hpp"
@@ -27,11 +28,6 @@
 namespace {
 
 constexpr const char *TAG = "ESP_HTTP_SERVER";
-constexpr size_t PACKED_FRAME_BYTES = E_INK_WIDTH * E_INK_HEIGHT / 2;
-
-void addString(cJSON *json, const char *key, const char *value) {
-  cJSON_AddStringToObject(json, key, value != nullptr ? value : "");
-}
 
 } // namespace
 
@@ -99,15 +95,13 @@ esp_err_t HttpServer::registerRoutes() {
 }
 
 esp_err_t HttpServer::optionsHandler(httpd_req_t *req) {
-
   httpd_resp_set_status(req, "204 No Content");
-  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin",
+                     config::kCorsAllowedOrigin);
   httpd_resp_set_hdr(req, "Access-Control-Allow-Methods",
-
-                     "GET, POST, DELETE, OPTIONS");
+                     config::kCorsAllowedMethods);
   httpd_resp_set_hdr(req, "Access-Control-Allow-Headers",
-
-                     "Content-Type, Authorization, X-Requested-With, Accept, Origin");
+                     config::kCorsAllowedHeaders);
   httpd_resp_set_hdr(req, "Access-Control-Max-Age", "86400");
   httpd_resp_set_hdr(req, "Access-Control-Allow-Private-Network", "true");
   httpd_resp_set_hdr(req, "Cache-Control", "no-store");
@@ -116,24 +110,16 @@ esp_err_t HttpServer::optionsHandler(httpd_req_t *req) {
 
 esp_err_t HttpServer::discoveryHandler(httpd_req_t *req) {
   auto *server = static_cast<HttpServer *>(req->user_ctx);
+  const BoardProfile &board = currentBoardProfile();
 
   cJSON *json = cJSON_CreateObject();
-  addString(json, "device_id", server->m_deviceIdentity.deviceId().c_str());
-  addString(json, "name", server->m_deviceIdentity.name().c_str());
-  addString(json, "model", config::kModel);
-  addString(json, "board", currentBoardProfile().key);
-
-  cJSON *capabilities = cJSON_AddArrayToObject(json, "capabilities");
-  cJSON_AddItemToArray(capabilities, cJSON_CreateString("wifi-provisioning"));
-  cJSON_AddItemToArray(capabilities, cJSON_CreateString("ble-display-v1"));
-  cJSON_AddItemToArray(capabilities, cJSON_CreateString("image-upload"));
-  cJSON_AddItemToArray(capabilities, cJSON_CreateString("image-clear"));
-
-  char apiBase[128];
-  std::snprintf(apiBase, sizeof(apiBase), "http://%s.local%s",
-                server->m_deviceIdentity.hostname().c_str(),
-                config::kApiBasePath);
-  addString(json, "api", apiBase);
+  prostokont::status_json::addRuntimeStatus(
+      json, server->m_deviceIdentity, board,
+      server->m_storage.isWifiProvisioned(),
+      server->m_wifiManager.hasStaIp());
+  prostokont::status_json::addDefaultCapabilities(json);
+  prostokont::status_json::addApiBase(json, server->m_deviceIdentity,
+                                      config::kApiBasePath);
 
   esp_err_t err = server->sendJson(req, json);
   cJSON_Delete(json);
@@ -142,23 +128,13 @@ esp_err_t HttpServer::discoveryHandler(httpd_req_t *req) {
 
 esp_err_t HttpServer::statusHandler(httpd_req_t *req) {
   auto *server = static_cast<HttpServer *>(req->user_ctx);
+  const BoardProfile &board = currentBoardProfile();
 
   cJSON *json = cJSON_CreateObject();
-  addString(json, "device_id", server->m_deviceIdentity.deviceId().c_str());
-  addString(json, "name", server->m_deviceIdentity.name().c_str());
-  addString(json, "hostname", server->m_deviceIdentity.hostname().c_str());
-  addString(json, "model", config::kModel);
-  addString(json, "board", currentBoardProfile().key);
-  addString(json, "firmware_version", config::kFirmwareVersion);
-  cJSON_AddBoolToObject(json, "wifi_provisioned",
-                        server->m_storage.isWifiProvisioned());
-  cJSON_AddBoolToObject(json, "sta_connected",
-                        server->m_wifiManager.hasStaIp());
-  cJSON_AddNumberToObject(json, "display_width", currentBoardProfile().width);
-  cJSON_AddNumberToObject(json, "display_height", currentBoardProfile().height);
-  cJSON_AddBoolToObject(json, "packed_frame_supported",
-                        currentBoardProfile().packedFrameSupported);
-  addString(json, "color_scheme", currentBoardProfile().colorScheme);
+  prostokont::status_json::addRuntimeStatus(
+      json, server->m_deviceIdentity, board,
+      server->m_storage.isWifiProvisioned(),
+      server->m_wifiManager.hasStaIp());
 
   esp_err_t err = server->sendJson(req, json);
   cJSON_Delete(json);
@@ -220,14 +196,11 @@ esp_err_t HttpServer::wifiConfigureHandler(httpd_req_t *req) {
       server->m_displayService.showReady(readyUrl.c_str()));
 
   cJSON *response = cJSON_CreateObject();
-  cJSON_AddStringToObject(response, "state", "connected");
-  addString(response, "hostname", server->m_deviceIdentity.hostname().c_str());
-
-  char apiBase[128];
-  std::snprintf(apiBase, sizeof(apiBase), "http://%s.local%s",
-                server->m_deviceIdentity.hostname().c_str(),
-                config::kApiBasePath);
-  addString(response, "api", apiBase);
+  prostokont::status_json::addState(response, "connected");
+  prostokont::status_json::addString(
+      response, "hostname", server->m_deviceIdentity.hostname().c_str());
+  prostokont::status_json::addApiBase(response, server->m_deviceIdentity,
+                                      config::kApiBasePath);
 
   err = server->sendJson(req, response);
   cJSON_Delete(response);
@@ -267,8 +240,8 @@ esp_err_t HttpServer::wifiResetHandler(httpd_req_t *req) {
   cJSON_AddBoolToObject(response, "reset", true);
   cJSON_AddBoolToObject(response, "wifi_provisioned", false);
   cJSON_AddStringToObject(response, "state", "setup");
-  addString(response, "ap_ssid", apSsid.c_str());
-  addString(response, "ap_url", config::kSoftApUrl);
+  prostokont::status_json::addString(response, "ap_ssid", apSsid.c_str());
+  prostokont::status_json::addString(response, "ap_url", config::kSoftApUrl);
 
   err = server->sendJson(req, response);
   cJSON_Delete(response);
@@ -320,11 +293,12 @@ esp_err_t HttpServer::sendJson(httpd_req_t *req, const char *json,
 
   httpd_resp_set_type(req, "application/json");
   httpd_resp_set_hdr(req, "Cache-Control", "no-store");
-  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin",
+                     config::kCorsAllowedOrigin);
   httpd_resp_set_hdr(req, "Access-Control-Allow-Methods",
-                     "GET, POST, DELETE, OPTIONS");
+                     config::kCorsAllowedMethods);
   httpd_resp_set_hdr(req, "Access-Control-Allow-Headers",
-                     "Content-Type, Authorization, X-Requested-With, Accept, Origin");
+                     config::kCorsAllowedHeaders);
   httpd_resp_set_hdr(req, "Access-Control-Allow-Private-Network", "true");
   return httpd_resp_send(req, json, HTTPD_RESP_USE_STRLEN);
 }
@@ -395,10 +369,13 @@ esp_err_t HttpServer::renderRequestImage(httpd_req_t *req) {
   }
 
   esp_err_t err = ESP_OK;
-  if (bodyLen == PACKED_FRAME_BYTES)
-    err = m_displayService.showPackedFrame(body, PACKED_FRAME_BYTES);
-  else
+  if (supportsDisplayInputFormat(currentBoardProfile(),
+                                 kDisplayInputFormatPackedFrame) &&
+      bodyLen == currentPackedFrameBytes()) {
+    err = m_displayService.showPackedFrame(body, bodyLen);
+  } else {
     err = m_displayService.showImage(body, bodyLen, true);
+  }
 
   heap_caps_free(body);
   return err;

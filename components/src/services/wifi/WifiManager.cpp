@@ -21,6 +21,7 @@ static const char *TAG = "ESP_WIFI_MANAGER";
 
 static constexpr EventBits_t WIFI_STA_GOT_IP = BIT0;
 static constexpr EventBits_t WIFI_STA_DISCONNECTED = BIT1;
+static constexpr EventBits_t WIFI_STA_CHANGED = BIT2;
 
 static const char *authModeName(wifi_auth_mode_t mode) {
   switch (mode) {
@@ -188,6 +189,11 @@ bool WifiManager::hasStaIp() const {
   return (bits & WIFI_STA_GOT_IP) != 0;
 }
 
+void WifiManager::waitForConnectivityChange(TickType_t timeoutTicks) const {
+  xEventGroupWaitBits(m_eventGroup, WIFI_STA_CHANGED, pdTRUE, pdFALSE,
+                      timeoutTicks);
+}
+
 std::string WifiManager::scanJson() {
   wifi_scan_config_t scanConfig = {};
   esp_err_t err = esp_wifi_scan_start(&scanConfig, true);
@@ -230,11 +236,11 @@ void WifiManager::onEvent(esp_event_base_t eventBase, int32_t eventId,
                           void *eventData) {
   if (eventBase == WIFI_EVENT && eventId == WIFI_EVENT_STA_DISCONNECTED) {
     xEventGroupClearBits(m_eventGroup, WIFI_STA_GOT_IP);
-    xEventGroupSetBits(m_eventGroup, WIFI_STA_DISCONNECTED);
+    xEventGroupSetBits(m_eventGroup, WIFI_STA_DISCONNECTED | WIFI_STA_CHANGED);
     ESP_LOGW(TAG, "STA disconnected");
   } else if (eventBase == IP_EVENT && eventId == IP_EVENT_STA_GOT_IP) {
     auto *event = static_cast<ip_event_got_ip_t *>(eventData);
-    xEventGroupSetBits(m_eventGroup, WIFI_STA_GOT_IP);
+    xEventGroupSetBits(m_eventGroup, WIFI_STA_GOT_IP | WIFI_STA_CHANGED);
     ESP_LOGI(TAG, "STA got IP: " IPSTR, IP2STR(&event->ip_info.ip));
   }
 }

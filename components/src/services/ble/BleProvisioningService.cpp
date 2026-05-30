@@ -25,6 +25,7 @@
 #include "nimble/nimble_port_freertos.h"
 #include "services/board/BoardProfile.hpp"
 #include "services/device/DeviceIdentity.hpp"
+#include "services/device/StatusPayloadJson.hpp"
 #include "services/display/DisplayService.hpp"
 #include "services/gap/ble_svc_gap.h"
 #include "services/gatt/ble_svc_gatt.h"
@@ -43,7 +44,7 @@ extern "C" void ble_store_config_init(void);
 constexpr const char *TAG = "ESP_BLE_STACK";
 constexpr size_t kMaxDeviceNameBytes = 29;
 constexpr size_t kMaxBleJsonBytes = 256;
-constexpr size_t kMaxBleStatusBytes = 768;
+constexpr size_t kMaxBleStatusBytes = 2048;
 constexpr size_t kMaxFormatBytes = 8;
 
 constexpr ble_uuid128_t kProvisioningServiceUuid =
@@ -71,6 +72,8 @@ constexpr ble_uuid128_t kDisplayControlUuid =
 constexpr ble_uuid128_t kDisplayDataUuid =
     BLE_UUID128_INIT(0x22, 0x24, 0xe1, 0x67, 0x5c, 0xd8, 0x7c, 0xa4, 0x45, 0x4b,
                      0xc0, 0x43, 0x03, 0x30, 0x3f, 0x7a);
+constexpr const char *kProvisioningServiceUuidText =
+    "7A3F3000-43C0-4B45-A47C-D85C67E12411";
 
 struct WifiCredentials {
   char ssid[33];
@@ -175,28 +178,6 @@ const char *stateName(DisplayState state) {
   return "unknown";
 }
 
-std::string jsonEscape(const char *value) {
-  std::string out;
-  if (value == nullptr)
-    return out;
-
-  for (const char *p = value; *p != '\0'; ++p) {
-    switch (*p) {
-    case '\\':
-      out += "\\\\";
-      break;
-    case '"':
-      out += "\\\"";
-      break;
-    default:
-      out.push_back(*p);
-      break;
-    }
-  }
-
-  return out;
-}
-
 void setProvisioningStateLocked(ProvisioningState state, const char *lastError) {
   g_runtime.provisioningState = state;
   std::strncpy(g_runtime.provisioningError, lastError != nullptr ? lastError : "",
@@ -220,84 +201,49 @@ void freeUploadBufferLocked() {
 }
 
 std::string provisioningStatusJsonLocked() {
-  const std::string apiBase = "http://" + g_runtime.deviceIdentity->hostname() +
-                              ".local" + std::string(config::kApiBasePath);
+  const BoardProfile &board = currentBoardProfile();
+  cJSON *json = cJSON_CreateObject();
+  prostokont::status_json::addState(json,
+                                    stateName(g_runtime.provisioningState));
+  prostokont::status_json::addRuntimeStatus(
+      json, *g_runtime.deviceIdentity, board,
+      g_runtime.storage->isWifiProvisioned(), g_runtime.wifiManager->hasStaIp());
+  prostokont::status_json::addApiBase(json, *g_runtime.deviceIdentity,
+                                      config::kApiBasePath);
+  prostokont::status_json::addLastError(json, g_runtime.provisioningError);
 
-  std::string json = "{\"state\":\"";
-  json += stateName(g_runtime.provisioningState);
-  json += "\",\"device_id\":\"";
-  json += jsonEscape(g_runtime.deviceIdentity->deviceId().c_str());
-  json += "\",\"name\":\"";
-  json += jsonEscape(g_runtime.deviceIdentity->name().c_str());
-  json += "\",\"hostname\":\"";
-  json += jsonEscape(g_runtime.deviceIdentity->hostname().c_str());
-  json += "\",\"wifi_provisioned\":";
-  json += g_runtime.storage->isWifiProvisioned() ? "true" : "false";
-  json += ",\"sta_connected\":";
-  json += g_runtime.wifiManager->hasStaIp() ? "true" : "false";
-  json += ",\"api\":\"";
-  json += jsonEscape(apiBase.c_str());
-  json += "\"";
-  if (g_runtime.provisioningError[0] != '\0') {
-    json += ",\"last_error\":\"";
-    json += jsonEscape(g_runtime.provisioningError);
-    json += "\"";
-  }
-  json += "}";
-  return json;
+  std::string rendered = prostokont::status_json::printUnformatted(json);
+  cJSON_Delete(json);
+  return rendered;
 }
 
 std::string displayStatusJsonLocked() {
   const BoardProfile &board = currentBoardProfile();
-  std::string json = "{\"protocol\":\"ble-display-v1\",\"state\":\"";
-  json += stateName(g_runtime.displayState);
-  json += "\",\"device_id\":\"";
-  json += jsonEscape(g_runtime.deviceIdentity->deviceId().c_str());
-  json += "\",\"name\":\"";
-  json += jsonEscape(g_runtime.deviceIdentity->name().c_str());
-  json += "\",\"hostname\":\"";
-  json += jsonEscape(g_runtime.deviceIdentity->hostname().c_str());
-  json += "\",\"board\":\"";
-  json += jsonEscape(board.key);
-  json += "\",\"width\":";
-  json += std::to_string(board.width);
-  json += ",\"height\":";
-  json += std::to_string(board.height);
-  json += ",\"packed_frame_supported\":";
-  json += board.packedFrameSupported ? "true" : "false";
-  json += ",\"color_scheme\":\"";
-  json += jsonEscape(board.colorScheme);
-  json += "\",\"wifi_provisioned\":";
-  json += g_runtime.storage->isWifiProvisioned() ? "true" : "false";
-  json += ",\"sta_connected\":";
-  json += g_runtime.wifiManager->hasStaIp() ? "true" : "false";
-  json += ",\"bytes_expected\":";
-  json += std::to_string(g_runtime.upload.expectedSize);
-  json += ",\"bytes_received\":";
-  json += std::to_string(g_runtime.upload.receivedSize);
-  json += ",\"format\":\"";
-  json += jsonEscape(g_runtime.upload.format);
-  json += "\"";
-  if (g_runtime.displayError[0] != '\0') {
-    json += ",\"last_error\":\"";
-    json += jsonEscape(g_runtime.displayError);
-    json += "\"";
-  }
-  json += "}";
-  return json;
+  cJSON *json = cJSON_CreateObject();
+  prostokont::status_json::addState(json, stateName(g_runtime.displayState));
+  prostokont::status_json::addRuntimeStatus(
+      json, *g_runtime.deviceIdentity, board,
+      g_runtime.storage->isWifiProvisioned(), g_runtime.wifiManager->hasStaIp());
+  prostokont::status_json::addDisplayTransferStatus(
+      json, "ble-display-v1", g_runtime.upload.expectedSize,
+      g_runtime.upload.receivedSize, g_runtime.upload.format);
+  prostokont::status_json::addLastError(json, g_runtime.displayError);
+
+  std::string rendered = prostokont::status_json::printUnformatted(json);
+  cJSON_Delete(json);
+  return rendered;
 }
 
 std::string pairJsonLocked() {
-  std::string json = "{\"protocol\":\"ask-wifi-v1\",\"service_uuid\":";
-  json += "\"7A3F3000-43C0-4B45-A47C-D85C67E12411\"";
-  json += ",\"device_id\":\"";
-  json += jsonEscape(g_runtime.deviceIdentity->deviceId().c_str());
-  json += "\",\"name\":\"";
-  json += jsonEscape(g_runtime.deviceIdentity->name().c_str());
-  json += "\",\"hostname\":\"";
-  json += jsonEscape(g_runtime.deviceIdentity->hostname().c_str());
-  json += "\"}";
-  return json;
+  cJSON *json = cJSON_CreateObject();
+  prostokont::status_json::addString(json, "protocol", "ask-wifi-v1");
+  prostokont::status_json::addString(json, "service_uuid",
+                                     kProvisioningServiceUuidText);
+  prostokont::status_json::addDeviceIdentity(json, *g_runtime.deviceIdentity);
+
+  std::string rendered = prostokont::status_json::printUnformatted(json);
+  cJSON_Delete(json);
+  return rendered;
 }
 
 void notifyProvisioningStatus();
@@ -423,7 +369,8 @@ esp_err_t handleDisplayControlWrite(const char *body) {
       return ESP_ERR_INVALID_SIZE;
     }
     if (std::strcmp(formatItem->valuestring, "packed") == 0 &&
-        (!currentBoardProfile().packedFrameSupported ||
+        (!supportsDisplayInputFormat(currentBoardProfile(),
+                                     kDisplayInputFormatPackedFrame) ||
          expectedSize != currentPackedFrameBytes())) {
       cJSON_Delete(json);
       updateDisplayState(DisplayState::Failed, "invalid_packed_size");
